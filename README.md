@@ -1,1 +1,1 @@
-# Richter_project
+Richter’s Predictor
