@@ -1,0 +1,1 @@
+Richter’s Predictor
