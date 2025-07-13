@@ -63,4 +63,57 @@ for col in df.columns:
         for val in val_counts.tail(10).index:
             print(f"    {val} -> {val_counts[val]} occorrenze ({rel_freq[val]:.4f})")
 
-    # outlier
+    # outliers
+
+def remove_multivariate_outliers_iqr(df, binary_threshold=2):
+    """
+    Rimuove record che sono outlier in più del 50% delle feature numeriche (escludendo flag binari).
+    
+    Parametri:
+        df (pd.DataFrame): Il dataframe originale
+        binary_threshold (int): Valori unici <= questa soglia sono considerati flag (default: 2)
+    
+    Ritorna:
+        pd.DataFrame: DataFrame pulito
+    """
+
+    # Trova colonne numeriche (non flag binari e label)
+    numeric_cols = []
+    for col in df.columns:
+        if df[col].dtype in ['int64', 'float64']:
+            unique_vals = df[col].nunique()
+            if unique_vals > 3:  # 3 così escludo anche label
+                numeric_cols.append(col)
+
+    print("Colonne numeriche su cui applico IQR:")
+    print(numeric_cols)
+
+    # Crea un DataFrame con gli stessi indici per memorizzare gli "outlier flag"
+    outlier_flags = pd.DataFrame(index=df.index)
+
+    # Calcola se ogni valore è un outlier secondo l'IQR per ogni colonna
+    for col in numeric_cols:
+        Q1 = df[col].quantile(0.25)         # 25° percentile
+        Q3 = df[col].quantile(0.75)         # 75° percentile
+        IQR = Q3 - Q1                       # Intervallo interquartile
+        lower_bound = Q1 - 1.5 * IQR        # limite inferiore
+        upper_bound = Q3 + 1.5 * IQR        # limite superiore
+
+        # True se il valore è fuori dai limiti, outlier_flag è un df con flag per ogni valore di ogni campione
+        outlier_flags[col] = (df[col] < lower_bound) | (df[col] > upper_bound)
+
+    # Conta quante flags true ci sono per ogni riga
+    outlier_counts = outlier_flags.sum(axis=1)
+
+    # Soglia per considerare se il campione è outlier globale, cioè considerando la maggior parte delle features
+    soglia = len(numeric_cols)*0.6
+    outliers = outlier_counts > soglia
+
+    print(f"Outlier riconosciuti: {outliers.sum()} su {len(df)}")
+
+    # Rimuovi le righe outliers
+    df_clean = df[outliers == False]
+    return df_clean
+
+
+df_clean = remove_multivariate_outliers_iqr(df)
