@@ -1,94 +1,58 @@
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import f1_score
-from joblib import dump, load
-from kmodes.kprototypes import KPrototypes
-import pandas as pd
 
 class RF:
 
     @staticmethod
-    def train_and_save_model(df, target_col, model_path='rf_model.joblib', random_state=42):
+    def random_forest_with_folds(df, target_col, folds, random_state=42):
+        """
+        Esegue Random Forest su fold specificati, con Ordinal Encoding
+        e iperparametri personalizzati. Usa F1 micro come metrica.
+
+        Parametri:
+            df (pd.DataFrame): Dataset completo
+            target_col (str): Nome colonna target
+            folds (List[Tuple]): Lista di (train_idx, test_idx)
+            random_state (int): Seed per RandomForest
+
+        Ritorna:
+            List[float]: F1-micro per ogni fold
+        """
+        df = df.copy()
         X = df.drop(columns=[target_col])
         y = df[target_col]
 
-        model = RandomForestClassifier(
-            n_estimators=100,
-            max_features='log2',
-            class_weight='balanced',
-            random_state=random_state
-        )
-
-        model.fit(X, y)
-        dump(model, model_path)
-        print(f"✅ Modello salvato in {model_path}")
-        return model
-
-    @staticmethod
-    def load_and_predict(model_path, X_new):
-        model = load(model_path)
-        return model.predict(X_new)
-
-    @staticmethod
-    def evaluate_f1_micro(y_true, y_pred):
-        """
-        Calcola e stampa la F1-micro tra y_true e y_pred.
-        """
-        f1_micro = f1_score(y_true, y_pred, average='micro')
-        print(f"🎯 F1-micro: {f1_micro:.4f}")
-        return f1_micro
-
-    @staticmethod
-    def preprocess_and_train_on_folds(path_dir, target_col='damage_grade', n_folds=5):
-        
-        
+        # Encoding delle categoriche
+        cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
+        encoder = OrdinalEncoder()
+        X[cat_cols] = encoder.fit_transform(X[cat_cols])
 
         f1_scores = []
 
-        for fold in range(1, n_folds + 1):
-            print(f"\n🔁 Fold {fold}")
+        for fold_idx, (train_idx, test_idx) in enumerate(folds):
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-            # Carica i dati
-            train_file = f"{path_dir}/fold_{fold}_train.csv"
-            val_file = f"{path_dir}/fold_{fold}_val.csv"
+            # Modello Random Forest configurato
+            model = RandomForestClassifier(
+                n_estimators=100,
+                criterion='gini',
+                min_impurity_decrease=0.005,
+                max_features='log2',
+                class_weight='balanced',
+                random_state=random_state
+            )
 
-            df_train = pd.read_csv(train_file)
-            df_val = pd.read_csv(val_file)
+            model.fit(X_train, y_train)
 
-            df_train = df_train.drop(columns=['geo_level_1_id','geo_level_3_id'])
-            df_val = df_val.drop(columns=['geo_level_1_id','geo_level_3_id'])
+            print(f"[Fold {fold_idx + 1}] Alberi costruiti: {len(model.estimators_)}")
 
-            df_train['geo_level_2_id']=df_train['geo_level_2_id'].astype("category")
-            df_val['geo_level_2_id']=df_val['geo_level_2_id'].astype("category")
+            y_pred = model.predict(X_test)
+            f1_micro = f1_score(y_test, y_pred, average='micro')
+            f1_scores.append(f1_micro)
 
+        print("F1-micro per fold:", f1_scores)
+        print("F1-micro media:", sum(f1_scores)/len(f1_scores))
 
-        
-
-            df_train = pd.get_dummies(df_train, columns=df_train.select_dtypes(include=['object', 'category']).columns)
-            df_val = pd.get_dummies(df_val, columns=df_val.select_dtypes(include=['object', 'category']).columns)
-
-
-
-            # Allineamento delle colonne (potrebbero esserci categorie mancanti in val)
-            df_train, df_val = df_train.align(df_val, join='left', axis=1, fill_value=0)
-
-
-            path_dir_model='C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/models/'
-            # Allenamento modello
-            model_name = f"{path_dir_model}/rf_model_fold_{fold}.joblib"
-            RF.train_and_save_model(df_train, target_col, model_path=model_name)
-
-            # Predizione sul validation set
-            X_val = df_val.drop(columns=[target_col])
-            y_val = df_val[target_col]
-            y_pred = RF.load_and_predict(model_name, X_val)
-
-            # Valutazione F1 score
-            f1 = RF.evaluate_f1_micro(y_val, y_pred)
-            f1_scores.append(f1)
-
-            print(f"📁 Fold {fold} completato.")
-
-        # Media F1 finale
-        mean_f1 = sum(f1_scores) / len(f1_scores)
-        print(f"\n📊 F1-micro media su {n_folds} fold: {mean_f1:.4f}")
-        return f1_scores, mean_f1
+        return f1_scores
