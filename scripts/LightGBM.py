@@ -1,69 +1,100 @@
-import pandas as pd
-from lightgbm import LGBMClassifier
-from sklearn.model_selection import StratifiedKFold
+import lightgbm as lgb
 from sklearn.metrics import f1_score
-from numpy import mean, std
+from joblib import dump, load
+import pandas as pd
+import inspect
+print(inspect.getfile(lgb.LGBMClassifier))
 
 
-train_df = pd.read_csv('train_values.csv')
-test_df = pd.read_csv('test_values.csv')
-labels_df = pd.read_csv('train_labels.csv')
+class LGBM:
 
+    @staticmethod
+    def train_and_save_model(df_train, df_val, target_col, model_path='lgbm_model.joblib', random_state=42):
+        X_train = df_train.drop(columns=[target_col])
+        y_train = df_train[target_col]
+        X_val = df_val.drop(columns=[target_col])
+        y_val = df_val[target_col]
 
-categorical_features = [
-    'land_surface_condition',
-    'foundation_type',
-    'roof_type',
-    'ground_floor_type',
-    'other_floor_type',
-    'position',
-    'plan_configuration',
-    'legal_ownership_status',
-    'geo_level_1_id',
-    'geo_level_2_id',
-    'geo_level_3_id'
-]
+        categorical_cols = X_train.select_dtypes(include='category').columns.tolist()
 
+        model = lgb.LGBMClassifier(
+            objective='multiclass',
+            num_class=3,
+            class_weight='balanced',
+            random_state=random_state,
+            n_estimators=500,
+            learning_rate=0.1,
+            num_leaves=64,
+            min_split_gain=0.01,
+            min_child_samples=100,
+            feature_fraction=0.8,
+            bagging_fraction=0.8,
+            bagging_freq=1,
+            reg_alpha=1.0,  # lambda_l1
+            reg_lambda=1.0,  # lambda_l2
+            verbosity=-1
+        )
 
-for col in categorical_features:
-    train_df[col] = train_df[col].astype('category')
-    test_df[col] = test_df[col].astype('category')
+        model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            eval_metric='multi_logloss',
+            callbacks=[lgb.early_stopping(stopping_rounds=40)]
+        )
+        dump(model, model_path)
+        print(f"✅ Modello LGBM salvato in {model_path}")
+        return model
 
+    @staticmethod
+    def load_and_predict(model_path, X_new):
+        model = load(model_path)
+        return model.predict(X_new)
 
-X = train_df.copy()
-y = labels_df['damage_grade'].copy()
+    @staticmethod
+    def evaluate_f1_micro(y_true, y_pred):
+        f1_micro = f1_score(y_true, y_pred, average='micro')
+        print(f"🎯 F1-micro: {f1_micro:.4f}")
+        return f1_micro
 
-n_splits = 5  
+    @staticmethod
+    def run(df_full, path_dir='C:/Users/emagi/Documents/richters_predictor/data/cross_validation', target_col='damage_grade', n_folds=5):
+        """
+        Preprocessing + Addestramento + Valutazione per ogni fold.
+        """
+        f1_scores = []
 
-skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+        for fold in range(1, n_folds + 1):
+            print(f"\n🔁 Fold {fold}")
 
-f1_micro_scores = []
+            # 🔹 Caricamento indici
+            train_idx = pd.read_csv(f"{path_dir}/fold_{fold}_train.csv", header=None)[0].values
+            val_idx = pd.read_csv(f"{path_dir}/fold_{fold}_val.csv", header=None)[0].values
 
-for fold, (train_idx, val_idx) in enumerate(skf.split(X, y)):
-    print(f"\n===== Fold {fold + 1} =====")
-    X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
-    y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
+            # 🔹 Creazione dei DataFrame per training e validazione
+            df_train = df_full.iloc[train_idx].reset_index(drop=True)
+            df_val = df_full.iloc[val_idx].reset_index(drop=True)
 
-    model = LGBMClassifier(
-        n_estimators=1000,
-        learning_rate=0.02,
-        min_child_samples=20,
-        reg_lambda=3.0,
-        subsample=0.8,
-        random_state=42
-    )
-    model.fit(
-        X_tr, y_tr,
-        eval_set=[(X_val, y_val)],
-        eval_metric='multi_logloss',
-        categorical_feature=categorical_features,
-    )
+            # 🔹 Colonne da eliminare (es. geo_level_1_id e geo_level_3_id)
+            # drop_cols = ['geo_level_1_id', 'geo_level_3_id']
+            #categorical_cols = df_train.select_dtypes(include='category').columns.tolist()
 
-    y_val_pred = model.predict(X_val)
-    f1_micro = f1_score(y_val, y_val_pred, average='micro')
-    print(f"F1 micro (Fold {fold + 1}): {f1_micro:.4f}")
+            # df_train = LGBM.preprocess_dataframe(df_train, drop_cols=drop_cols, categorical_cols=categorical_cols)
+            # df_val = LGBM.preprocess_dataframe(df_val, drop_cols=drop_cols, categorical_cols=categorical_cols)
 
-    f1_micro_scores.append(f1_micro)
+            # 🔹 Addestramento
+            path_dir_model = "C:/Users/emagi/Documents/richters_predictor/models/"
+            model_path = f"{path_dir_model}/lgbm_model_fold_{fold}.joblib"
+            LGBM.train_and_save_model(df_train, df_val, target_col, model_path=model_path)
 
-print(f"\nF1 micro average: {mean(f1_micro_scores):.4f}")
-print(f"F1 micro std: {std(f1_micro_scores):.4f}")
+            # 🔹 Valutazione
+            X_val = df_val.drop(columns=[target_col])
+            y_val = df_val[target_col]
+            y_pred = LGBM.load_and_predict(model_path, X_val)
+            f1 = LGBM.evaluate_f1_micro(y_val, y_pred)
+            f1_scores.append(f1)
+
+            print(f"📁 Fold {fold} completato.")
+
+        mean_f1 = sum(f1_scores) / len(f1_scores)
+        print(f"\n📊 F1-micro media su {n_folds} fold: {mean_f1:.4f}")
+        return f1_scores, mean_f1
