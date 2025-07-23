@@ -2,7 +2,7 @@ import optuna
 import pandas as pd
 from joblib import dump
 from data_cleaning import Data_cleaner
-from scripts.LightGBM import LGBMonfolds
+from LightGBM import LGBMonfolds
 
 
 class Lgmb_tuning:

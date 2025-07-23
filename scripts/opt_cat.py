@@ -3,7 +3,7 @@ import optuna
 import pandas as pd
 from joblib import dump
 from data_cleaning import Data_cleaner
-from scripts.Catboost import CatBoostonfolds
+from Catboost import CatBoostonfolds
 
 
 class Catboost_tuning:
