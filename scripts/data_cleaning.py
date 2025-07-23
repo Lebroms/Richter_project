@@ -134,7 +134,7 @@ if __name__ == "__main__":
     df = Data_cleaner.missing_and_error_handler(df)
     df = Data_cleaner.remove_multivariate_outliers_iqr(df)
 
-    # Salvataggio
+'''    # Salvataggio
     df.to_csv(output_path, index=False)
-    print(f"Dataset pulito salvato in: {output_path}")
+    print(f"Dataset pulito salvato in: {output_path}")'''
 
