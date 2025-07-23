@@ -1,13 +1,13 @@
 import lightgbm as lgb
 from sklearn.metrics import f1_score
-from joblib import dump, load
+from joblib import dump
 import pandas as pd
 from data_cleaning import Data_cleaner
 import numpy as np
 
 class LGBMonfolds:
     '''
-    Classe per addestrare un classificatore CatBoost su un dataset con validazione incrociata (K-Fold).
+    Classe per addestrare un classificatore LightGBM su un dataset con validazione incrociata (K-Fold).
 
     '''
 
@@ -18,7 +18,7 @@ class LGBMonfolds:
         Parametri:
         - df_full (pd.DataFrame): dataset completo contenente feature e target.
         - path_dir_csv (str): percorso alla directory contenente i CSV con gli indici dei fold.
-        - params (dict): dizionario dei parametri da passare a CatBoostClassifier.
+        - params (dict): dizionario dei parametri da passare a LGBMClassifier.
 
         Ritorna:
         - None
@@ -51,7 +51,7 @@ class LGBMonfolds:
     
     def run(self, model_path_dir,target_col='damage_grade', n_folds=5,save=False):
         """
-        Esegue il training e la valutazione di un modello XGBoost su k-fold cross-validation,
+        Esegue il training e la valutazione di un modello LightGBM su k-fold cross-validation,
         salvando opzionalmente i modelli per ogni fold.
 
         Parametri:
@@ -106,7 +106,7 @@ class LGBMonfolds:
         
         # Calcolo della media degli F1-score sui fold
         mean_f1 = np.mean(f1_scores)
-        print(f"\nF1-micro media su {n_folds} fold: {mean_f1:.4f}")
+        print(f"F1-micro media su {n_folds} fold: {mean_f1:.4f}")
         return f1_scores, mean_f1
 
 

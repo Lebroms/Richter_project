@@ -66,10 +66,10 @@ class Submitter:
         default_row = pd.DataFrame([default_vec], columns=[f"{column}_emb_{i}" for i in range(emb_dim)])
         default_row[column + "_mapped"] = -1
 
-        # Aggiungi il vettore di default
+        # Aggiunge il vettore di default
         emb_df = pd.concat([emb_df, default_row], ignore_index=True)
 
-        # Sostituisci NaN con -1 e forza a int
+        # Sostituisce NaN con -1 e forza a int
         df[column + "_mapped"] = df[column + "_mapped"].astype(float).fillna(-1).astype(int)
 
         n_default = (df[column + "_mapped"] == -1).sum()
@@ -145,7 +145,6 @@ class Submitter:
         print("Submission creata")
 
 
- # === MAIN ===
 if __name__ == "__main__":
     model_type = "xgboost"  # "lightgbm", "catboost" o "xgboost"
     test_value_path = 'C:/Users/emagi/Documents/richters_predictor/data/test_values.csv'

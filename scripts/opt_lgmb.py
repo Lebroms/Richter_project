@@ -1,8 +1,5 @@
 import optuna
 import pandas as pd
-import numpy as np
-import lightgbm as lgb
-from sklearn.metrics import f1_score
 from joblib import dump
 from data_cleaning import Data_cleaner
 from scripts.LightGBM import LGBMonfolds
@@ -10,14 +7,14 @@ from scripts.LightGBM import LGBMonfolds
 
 class Lgmb_tuning:
     '''
-    Classe per eseguire l'ottimizzazione degli iperparametri di un modello CatBoost usando Optuna,
+    Classe per eseguire l'ottimizzazione degli iperparametri di un modello LightGBM usando Optuna,
     applicando validazione incrociata sui fold e salvando sia lo studio che i modelli finali.
     
     '''
 
     def __init__(self,df_full,target_col,n_folds,data_path,model_path,study_path):
         """
-        Inizializza la classe CatBoost_tuning con dataset, parametri di tuning e percorsi.
+        Inizializza la classe Lgmb_tuning con dataset, parametri di tuning e percorsi.
 
         Parametri:
         - df_full (pd.DataFrame): dataset completo contenente le feature e il target.
@@ -38,12 +35,10 @@ class Lgmb_tuning:
         self.model_path=model_path
         self.study_path=study_path
         
-
-    # === Funzione principale ===
     def run_optuna(self, n_trials=150):
         """
         Esegue l'ottimizzazione con Optuna per il tuning degli iperparametri
-        di un modello CatBoost, basato sulla media del punteggio F1-micro su più fold.
+        di un modello LightGBM, basato sulla media del punteggio F1-micro su più fold.
 
         Parametri:
         - n_trials (int): numero massimo di tentativi per Optuna.
@@ -64,11 +59,7 @@ class Lgmb_tuning:
             Ritorna:
             - float: punteggio F1-micro medio sui fold.
 
-            """
-
-            
-
-            # Iperparametri suggeriti dinamicamente da Optuna
+            """    
             params = {
                 'objective': 'multiclass',
                 'num_class': 3,
@@ -93,11 +84,11 @@ class Lgmb_tuning:
 
             return mean_f1
 
-        # === Ottimizzazione ===
+        # Ottimizzazione
         # Crea lo studio Optuna, usando MedianPruner per interrompere i trial meno promettenti
         study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=20))
 
-        # Avvia l'ottimizzazione: usa 6 job paralleli e un timeout massimo di 18000 secondi
+        # Avvia l'ottimizzazione
         study.optimize(objective, n_trials, n_jobs=6, timeout=18000)
 
         # Stampa il miglior valore di F1 e i relativi iperparametri
@@ -106,8 +97,7 @@ class Lgmb_tuning:
         for k, v in study.best_params.items():
             print(f"  {k}: {v}")
 
-        # === Salva lo study ===
-        # Serializza e salva l’oggetto study su disco
+        # salva l’oggetto study su disco
         dump(study, self.study_path)
         print(f"Study salvato in: {self.study_path}")
 
@@ -121,13 +111,13 @@ class Lgmb_tuning:
             'random_state' : 42
         }
 
-        # Aggiorna i parametri migliori con quelli fissi (attenzione: update() modifica in-place e restituisce None)
+        # Aggiorna i parametri migliori con quelli fissi 
         parameters={**study.best_params,**default_params}
 
         save=True
-        # Addestra il modello finale sui dati completi con i parametri ottimizzati e salva il modello
-        model = LGBMonfolds(self.df_full,self.data_path,parameters)
-        f1_score, mean_f1= model.run(self.model_path,self.target_col,self.n_folds,save)
+        # Addestra i modelli finali con gli iperparametri ottimizzati e salva i modelli
+        model = LGBMonfolds(self.df_full, self.data_path, parameters)
+        f1_score, mean_f1= model.run(self.model_path, self.target_col, self.n_folds, save)
 
 
 

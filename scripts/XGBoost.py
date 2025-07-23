@@ -7,7 +7,7 @@ import numpy as np
 
 class XGBonfolds:
     '''
-    Classe per addestrare un classificatore CatBoost su un dataset con validazione incrociata (K-Fold).
+    Classe per addestrare un classificatore XGBoost su un dataset con validazione incrociata (K-Fold).
 
     '''  
     def __init__(self, df_full, path_dir_csv, params):

@@ -82,7 +82,7 @@ class XGBoost_tuning:
             return mean_f1
 
         study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=20))
-        study.optimize(objective, n_trials=n_trials, n_jobs=6, timeout=18000) # timeout
+        study.optimize(objective, n_trials=n_trials, n_jobs=6, timeout=18000) 
 
         print("Best F1-micro:", study.best_value)
         print("Best hyperparameters:")

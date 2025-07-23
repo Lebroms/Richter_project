@@ -1,11 +1,9 @@
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-
 class Skf():
      
-
-    def __init__(self, df_full, path_dir_csv,target_col):
+    def __init__(self, df_full, path_dir_csv, target_col):
         
         self.df_full = df_full
         self.path_dir_csv = path_dir_csv
@@ -36,13 +34,12 @@ class Skf():
             pd.DataFrame(train_idx).to_csv(train_path, index=False, header=False)
             pd.DataFrame(val_idx).to_csv(val_path, index=False, header=False)
 
-            print(f"✅ Salvati: {train_path}, {val_path}")
+            print(f"Salvati: {train_path}, {val_path}")
             folds.append((train_idx, val_idx))
 
         
 
     
-
 
 
 

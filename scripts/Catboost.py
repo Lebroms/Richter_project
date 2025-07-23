@@ -51,7 +51,7 @@ class CatBoostonfolds:
 
     def run(self, model_path_dir ,target_col='damage_grade', n_folds=5,save=False):
         """
-        Esegue il training e la valutazione di un modello XGBoost su k-fold cross-validation,
+        Esegue il training e la valutazione di un modello CatBoost su k-fold cross-validation,
         salvando opzionalmente i modelli per ogni fold.
 
         Parametri:

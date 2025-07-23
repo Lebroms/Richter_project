@@ -81,13 +81,12 @@ class Catboost_tuning:
                 "task_type": "CPU"
             }
 
-            # Inizializza il modello CatBoost per la cross-validation su più fold
             model = CatBoostonfolds(self.df_full, self.data_path, params)
             _, mean_f1= model.run(self.model_path, self.target_col, self.n_folds)
 
             return mean_f1
 
-        # === Ottimizzazione ===
+        # Ottimizzazione
         # Crea uno study Optuna con pruning mediano per velocizzare la ricerca
         study = optuna.create_study(direction="maximize",pruner=optuna.pruners.MedianPruner(n_warmup_steps=20))
 
@@ -120,7 +119,7 @@ class Catboost_tuning:
         # Unione dei parametri 
         parameters = {**study.best_params, **default_params}
         
-        # Addestramento finale del modello con i parametri ottimizzati e salvataggio su disco
+        # Addestramento finale dei modelli con gli iperparametri ottimizzati e salvataggio su disco
         save=True
         model = CatBoostonfolds(self.df_full, self.data_path, parameters)
         f1_scores, mean_f1= model.run(self.model_path, self.target_col, self.n_folds,save)
