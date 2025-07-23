@@ -1,6 +1,3 @@
-
-Richter’s Predictor
-=======
 # richters_predictor
 
 Sistema modulare completo per la **predizione del danno sismico agli edifici** (`damage_grade`) attraverso tecniche avanzate di **Machine Learning**, **embedding neurali**, **ottimizzazione iperparametrica con Optuna** e validazione K-Fold. Basato su CatBoost, LightGBM, Random Forest e XGBoost.

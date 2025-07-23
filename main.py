@@ -79,5 +79,11 @@ model_tuner.run_optuna()
 
 
 
-submitter=Submitter(model_type,test_value_path,submission_format_path,submission_output_path,embedding_dir)
-submitter.generate_submission()
+model_path = {
+            "catboost": [f"C:/Users/emagi/Documents/richters_predictor/models/catboost_model_fold_{i}.joblib" for i in range(1, 6)],
+            "lightgbm": [f"C:/Users/emagi/Documents/richters_predictor/models/lightgbm_model_fold_{i}.joblib" for i in range(1, 6)],
+            "xgboost": [f"C:/Users/emagi/Documents/richters_predictor/models/xgb_model_fold_{i}.joblib" for i in range(1, 6)],
+        }
+    
+sub = Submitter (model_type, test_value_path, submission_format_path, submission_output_path, embedding_dir)
+sub.generate_submission(model_path)
