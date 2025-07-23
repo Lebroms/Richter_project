@@ -10,29 +10,27 @@ from scripts.LightGBM import LGBMonfolds
 
 class Lgmb_tuning:
     '''
-    Classe per eseguire l'ottimizzazione degli iperparametri di un modello LightGBM tramite Optuna.
-    Include addestramento e valutazione tramite validazione incrociata su n_folds.
-    Attributi:
-    - df_full: DataFrame con il dataset completo.
-    - target_col: nome della colonna target da predire.
-    - n_folds: numero di fold per la validazione incrociata.
-    - data_path: percorso alla directory contenente i file CSV degli indici dei fold.
-    - model_path: percorso per salvare il modello finale.
-    - study_path: percorso per salvare l'oggetto Optuna Study.
+    Classe per eseguire l'ottimizzazione degli iperparametri di un modello CatBoost usando Optuna,
+    applicando validazione incrociata sui fold e salvando sia lo studio che i modelli finali.
+    
     '''
 
     def __init__(self,df_full,target_col,n_folds,data_path,model_path,study_path):
-        '''
-        Metodo costruttore: inizializza gli attributi della classe.
+        """
+        Inizializza la classe CatBoost_tuning con dataset, parametri di tuning e percorsi.
+
         Parametri:
-        - df_full: DataFrame contenente il dataset completo.
-        - target_col: nome della colonna target.
-        - n_folds: numero di fold per la validazione incrociata.
-        - data_path: directory contenente i CSV degli indici di fold.
-        - model_path: path in cui salvare il modello finale.
-        - study_path: path in cui salvare lo studio Optuna.
-        Non restituisce nulla.
-        '''
+        - df_full (pd.DataFrame): dataset completo contenente le feature e il target.
+        - target_col (str): nome della colonna target.
+        - n_folds (int): numero di fold per la cross-validation.
+        - data_path (str): percorso della directory contenente gli indici dei fold.
+        - model_path (str): percorso della directory dove salvare i modelli allenati.
+        - study_path (str): percorso del file in cui salvare l'oggetto Optuna `study`.
+
+        Ritorna:
+        - None
+
+        """
         self.df_full=df_full
         self.target_col=target_col
         self.n_folds=n_folds
@@ -43,23 +41,32 @@ class Lgmb_tuning:
 
     # === Funzione principale ===
     def run_optuna(self, n_trials=150):
-        '''
-        Esegue un'ottimizzazione di iperparametri per un modello LightGBM su n_trials configurazioni.
+        """
+        Esegue l'ottimizzazione con Optuna per il tuning degli iperparametri
+        di un modello CatBoost, basato sulla media del punteggio F1-micro su più fold.
+
         Parametri:
-        - n_trials: numero di iterazioni da eseguire per la ricerca degli iperparametri.
-        Non restituisce nulla esplicitamente (side effect: salva modello e studio su disco).
-        '''
+        - n_trials (int): numero massimo di tentativi per Optuna.
+
+        Ritorna:
+        - None (ma stampa i migliori iperparametri e salva i modelli finali e lo `study`).
+        
+        """
 
         def objective(trial):
-            '''
-            Funzione obiettivo per Optuna: definisce i parametri da ottimizzare e valuta la media dell'F1-micro score.
-            Parametri:
-            - trial: oggetto Trial di Optuna che gestisce la proposta della configurazione corrente.
-            Return:
-            - mean_f1: F1-micro medio sui fold della validazione incrociata per i parametri proposti.
-            '''
+            """
+            Funzione obiettivo per Optuna, che esegue il training
+            un set di iperparametri suggeriti e restituisce il F1-micro medio.
 
-            f1_scores = []
+            Parametri:
+            - trial (optuna.trial.Trial): oggetto trial che fornisce i suggerimenti.
+
+            Ritorna:
+            - float: punteggio F1-micro medio sui fold.
+
+            """
+
+            
 
             # Iperparametri suggeriti dinamicamente da Optuna
             params = {
@@ -81,14 +88,14 @@ class Lgmb_tuning:
             }
 
             # Inizializzazione e addestramento del modello sui fold specificati
-            model = LGBMonfolds(self.df_full,self.data_path,**params)
+            model = LGBMonfolds(self.df_full,self.data_path,params)
             _, mean_f1= model.run(self.model_path,self.target_col,self.n_folds)
 
             return mean_f1
 
         # === Ottimizzazione ===
         # Crea lo studio Optuna, usando MedianPruner per interrompere i trial meno promettenti
-        study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
+        study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=20))
 
         # Avvia l'ottimizzazione: usa 6 job paralleli e un timeout massimo di 18000 secondi
         study.optimize(objective, n_trials, n_jobs=6, timeout=18000)
@@ -115,9 +122,26 @@ class Lgmb_tuning:
         }
 
         # Aggiorna i parametri migliori con quelli fissi (attenzione: update() modifica in-place e restituisce None)
-        params=study.best_params.update(default_params)
+        parameters={**study.best_params,**default_params}
 
         save=True
         # Addestra il modello finale sui dati completi con i parametri ottimizzati e salva il modello
-        model = LGBMonfolds(self.df_full,self.data_path,**params)
+        model = LGBMonfolds(self.df_full,self.data_path,parameters)
         f1_score, mean_f1= model.run(self.model_path,self.target_col,self.n_folds,save)
+
+
+
+if __name__ == "__main__":
+    dataset_path = 'C:/Users/emagi/Documents/richters_predictor/data/clean_dataset.csv'
+    target_col = "damage_grade"
+    n_folds = 5
+    index_path = "C:/Users/emagi/Documents/richters_predictor/data/cross_validation"
+    model_path = "C:/Users/emagi/Documents/richters_predictor/models"
+    study_path = "C:/Users/emagi/Documents/richters_predictor/models/optuna_study_xgb.pkl"
+
+    df = pd.read_csv(dataset_path)
+    df = Data_cleaner.missing_and_error_handler(df)   
+    print(df.dtypes)
+    print(f"Dataset caricato: {df.shape}")
+    opt_xgb = Lgmb_tuning(df, target_col, n_folds, index_path, model_path, study_path)
+    opt_xgb.run_optuna()

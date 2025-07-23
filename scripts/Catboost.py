@@ -3,6 +3,7 @@ from sklearn.metrics import f1_score
 from joblib import dump, load
 import pandas as pd
 import numpy as np
+#from optuna_integration.catboost import CatBoostPruningCallback
 
 class CatBoostonfolds:
     '''
@@ -46,7 +47,7 @@ class CatBoostonfolds:
           - f1: valore dell'F1-score calcolato con media 'micro'.
         '''
         f1 = f1_score(y_true, y_pred, average='micro')
-        print(f"🎯 F1-micro: {f1:.4f}")
+        print(f"F1-micro: {f1:.4f}")
         return f1
 
     
@@ -66,7 +67,7 @@ class CatBoostonfolds:
         f1_scores = []
 
         for fold in range(1, n_folds + 1):
-            print(f"\n🔁 Fold {fold}")
+            print(f"\nFold {fold}")
 
             # Legge gli indici di train e validation per il fold corrente
             train_idx = pd.read_csv(f"{self.path_dir_csv}/fold_{fold}_train.csv", header=None)[0].values
@@ -89,7 +90,7 @@ class CatBoostonfolds:
             model.fit(X_train, y_train,
                       eval_set=(X_val, y_val),
                       cat_features=self.cat_cols)
-                      #callbacks=[CatBoostPruningCallback(trial, "TotalF1:average=Micro")])
+                      #callbacks=[CatBoostPruningCallback(trial, "TotalF1:average=Micro")]) (solo con GPU)
 
             if save==True:
                 # Salva il modello addestrato del fold corrente su disco

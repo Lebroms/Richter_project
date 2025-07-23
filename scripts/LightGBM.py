@@ -7,22 +7,21 @@ import numpy as np
 
 class LGBMonfolds:
     '''
-    Classe per addestrare un classificatore LightGBM su un dataset usando validazione incrociata (K-Fold).
-     Attributi:
-      - df_full: dataset completo da cui verranno selezionati i dati per ciascun fold.
-      - path_dir_csv: directory contenente i file CSV con gli indici di train e validazione per ogni fold.
-      - params: dizionario con i parametri da usare per il classificatore LightGBM.
-      - cat_cols: lista delle colonne categoriali, estratte automaticamente dal dataset.
+    Classe per addestrare un classificatore CatBoost su un dataset con validazione incrociata (K-Fold).
+
     '''
 
     def __init__(self, df_full,path_dir_csv,params):
         '''
-        Metodo costruttore: inizializza la classe con i dati, i parametri e i percorsi necessari.
-         Parametri:
-          - df_full: DataFrame contenente l'intero dataset.
-          - path_dir_csv: path alla directory con i file CSV degli indici dei fold.
-          - params: dizionario dei parametri per il modello LightGBM.
-         Non restituisce nulla.
+        Metodo costruttore: inizializza la classe con il dataset, i percorsi e i parametri del modello.
+
+        Parametri:
+        - df_full (pd.DataFrame): dataset completo contenente feature e target.
+        - path_dir_csv (str): percorso alla directory contenente i CSV con gli indici dei fold.
+        - params (dict): dizionario dei parametri da passare a CatBoostClassifier.
+
+        Ritorna:
+        - None
         '''
 
         self.df_full = df_full
@@ -41,27 +40,30 @@ class LGBMonfolds:
         '''
         Calcola e stampa l'F1-score micro tra valori veri e predetti.
          Parametri:
-          - y_true: array-like, valori reali del target.
-          - y_pred: array-like, valori predetti dal modello.
+          - y_true (array): valori reali del target.
+          - y_pred (array): valori predetti dal modello.
          Return:
-          - f1: valore dell'F1-score calcolato con media 'micro'.
+          - f1 (float): valore dell'F1-score calcolato con media 'micro'.
         '''
         f1 = f1_score(y_true, y_pred, average='micro')
-        print(f"🎯 F1-micro: {f1:.4f}")
+        print(f"F1-micro: {f1:.4f}")
         return f1
     
     def run(self, model_path_dir,target_col='damage_grade', n_folds=5,save=False):
-        '''
-        Esegue l'addestramento e la valutazione del modello su ciascun fold, con eventuale salvataggio.
-         Parametri:
-          - model_path_dir: directory in cui salvare i modelli addestrati, se save=True.
-          - target_col: nome della colonna target (default: 'damage_grade').
-          - n_folds: numero di fold della cross-validation (default: 5).
-          - save: se True, salva su disco il modello addestrato per ogni fold.
-         Return:
-          - f1_scores: lista contenente l'F1-score per ciascun fold.
-          - mean_f1: media degli F1-score sui fold.
-        '''
+        """
+        Esegue il training e la valutazione di un modello XGBoost su k-fold cross-validation,
+        salvando opzionalmente i modelli per ogni fold.
+
+        Parametri:
+        - model_path_dir (str): percorso in cui salvare i modelli allenati.
+        - target_col (str): nome della colonna target nel dataset.
+        - n_folds (int): numero di fold per la cross-validation.
+        - save (bool): se True, salva i modelli in formato joblib nella directory specificata.
+
+        Ritorna:
+        - f1_scores (list of float): lista dei punteggi F1 per ciascun fold.
+        - mean_f1 (float): media dei punteggi F1 su tutti i fold.
+        """
         f1_scores = []
 
         for fold in range(1, n_folds + 1):
@@ -104,15 +106,7 @@ class LGBMonfolds:
         
         # Calcolo della media degli F1-score sui fold
         mean_f1 = np.mean(f1_scores)
-        print(f"\n📊 F1-micro media su {n_folds} fold: {mean_f1:.4f}")
+        print(f"\nF1-micro media su {n_folds} fold: {mean_f1:.4f}")
         return f1_scores, mean_f1
 
 
-'''if __name__ == "__main__":
-    dataset_path = 'C:/Users/emagi/Documents/richters_predictor/data/clean_dataset.csv'
-    indici_cross_path ='C:/Users/emagi/Documents/richters_predictor/data/cross_validation'
-    df = pd.read_csv(dataset_path)
-    df = Data_cleaner.missing_and_error_handler(df)
-    print(df.dtypes)
-    print(f"Dataset caricato: {df.shape}")
-    LGBM.run(df, indici_cross_path)'''
