@@ -35,12 +35,13 @@ Il file `main.py` fornisce una **pipeline integrata** che unisce tutte le fasi d
 
 > **Attenzione:** affinché `main.py` funzioni correttamente, bisogna modificare gli **import interni** dei file `.py` (sopra citati) come segue:
 
-| Script da modificare     | Import originale                     | Import per `main.py`                         |
-|--------------------------|--------------------------------------|----------------------------------------------|
-| `opt_cat.py`             | `from data_cleaning import ...`      | `from scripts.data_cleaning import ...`      |
-| `opt_lgmb.py`            | `from data_cleaning import ...`      | `from scripts.data_cleaning import ...`      |
-| `opt_xgb.py`             | `from data_cleaning import ...`      | `from scripts.data_cleaning import ...`      |
-| `geo_embedding.py`       | (nessuna modifica necessaria se non usato) | solo se importato nel main                  |
+| Script da modificare       | Import originale                                                  | Import per `main.py`                                                        |
+|----------------------------|-------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `opt_cat.py`               | `from data_cleaning import ...`<br>`from Catboost import ...`     | `from scripts.data_cleaning import ...`<br>`from scripts.Catboost import ...` |
+| `opt_lgmb.py`              | `from data_cleaning import ...`<br>`from LightGBM import ...`     | `from scripts.data_cleaning import ...`<br>`from scripts.LightGBM import ...` |
+| `opt_xgb.py`               | `from data_cleaning import ...`<br>`from XGBoost import ...`      | `from scripts.data_cleaning import ...`<br>`from scripts.XGBoost import ...`  |
+| `submission_generator.py` | `from data_cleaning import ...`                                   | `from scripts.data_cleaning import ...`                                       |
+
 
 Alternativamente, si possono duplicare questi file e creare una versione modificata per l’esecuzione di una specifica pipeline desiderata nel `main`.
 
