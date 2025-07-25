@@ -1,6 +1,6 @@
-# richters_predictor
+# Richters_predictor
 
-Sistema modulare completo per la **predizione del danno sismico agli edifici** (`damage_grade`) attraverso tecniche avanzate di **Machine Learning**, **embedding neurali**, **ottimizzazione iperparametrica con Optuna** e validazione K-Fold. Basato su CatBoost, LightGBM, Random Forest e XGBoost.
+Sistema modulare completo per la **predizione del danno sismico agli edifici** (`damage_grade`) attraverso tecniche di **Machine Learning**, **embedding neurali**, **ottimizzazione iperparametrica con Optuna** e validazione K-Fold. Basato su CatBoost, LightGBM, Random Forest e XGBoost.
 
 ---
 
@@ -8,7 +8,41 @@ Sistema modulare completo per la **predizione del danno sismico agli edifici** (
 
 Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati strutturali e geografici degli edifici, forniti da [IDRL Nepal Earthquake dataset](https://www.drivendata.org/competitions/57/nepal-earthquake/data/).
 
+---
 
+## Esecuzione degli script
+
+Il progetto supporta **due modalità di esecuzione**:
+
+### ESECUZIONE STANDALONE (consigliata)
+E' possibile eseguire singolarmente i seguenti file `.py`:
+
+- `data_cleaning.py`
+- `geo_embedding.py`
+- `opt_cat.py`
+- `opt_lgmb.py`
+- `opt_xgb.py`
+- `submission_generator.py`
+
+Questi file contengono un blocco `if __name__ == "__main__":` con un esempio di esecuzione diretta. Gli **import** sono scritti in modo da **permettere direttamente l'esecuzione del file in modalità standalone** in Visual Studio Code o terminale.
+
+---
+
+### ESECUZIONE COMPLETA VIA `main.py`
+
+Il file `main.py` fornisce una **pipeline integrata** che unisce tutte le fasi del progetto, dalla pulizia dei dati alla generazione della submission finale.  
+È pensato come esempio completo di flusso di lavoro.
+
+> **Attenzione:** affinché `main.py` funzioni correttamente, bisogna modificare gli **import interni** dei file `.py` (sopra citati) come segue:
+
+| Script da modificare     | Import originale                     | Import per `main.py`                         |
+|--------------------------|--------------------------------------|----------------------------------------------|
+| `opt_cat.py`             | `from data_cleaning import ...`      | `from scripts.data_cleaning import ...`      |
+| `opt_lgmb.py`            | `from data_cleaning import ...`      | `from scripts.data_cleaning import ...`      |
+| `opt_xgb.py`             | `from data_cleaning import ...`      | `from scripts.data_cleaning import ...`      |
+| `geo_embedding.py`       | (nessuna modifica necessaria se non usato) | solo se importato nel main                  |
+
+Alternativamente, si possono duplicare questi file e creare una versione modificata per l’esecuzione di una specifica pipeline desiderata nel `main`.
 
 ---
 
@@ -26,7 +60,7 @@ Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati struttura
 
 3. **Cross-validation**:
    - Generazione indici `train/val` su 5 fold con `StratifiedKFold`
-   - Salvataggio nella directory specificata di file .csv degli indici del dataset estratti dalla       stratified k cross validation
+   - Salvataggio nella directory specificata di file .csv con gli indici
 
 4. **Embedding Neurale (opzionale, per XGBoost)**:
    - Training di reti neurali per ciascuna `geo_level_*_id`
@@ -52,13 +86,12 @@ Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati struttura
 - Conversione automatica tipi `object` → `category`
 - Log dei valori unici e frequenze
 - Rimozione outlier se presenti in oltre il 60% delle feature numeriche
-- Funziona sia standalone che integrato in `main.py`
 
 ---
 
 ### `cross_validation.py`
 - `Skf` genera fold `train/val` con distribuzione stratificata delle classi
-- Salva 10 CSV (`fold_i_train.csv` / `fold_i_val.csv`) per i moduli di training
+- Salva dei file CSV (`fold_i_train.csv` / `fold_i_val.csv`) contenenti gli indici dei campioni del training set e validation set per un i-esimo esperimento. 
 
 ---
 
@@ -81,7 +114,7 @@ Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati struttura
 - Salva:
   - embedding matrix (`.npy`)
   - dizionario di mapping (`.pkl`)
-- Funzione `apply_embedding()` esegue il merge con il dataframe
+- Funzione `apply_embedding()` che esegue il merge con il dataframe
 
 ---
 
@@ -91,7 +124,7 @@ Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati struttura
 - `opt_xgb.py`: tuning XGBoost
 - Funzioni:
   - `run_optuna(n_trials)` esegue tuning
-  - `objective(trial)` valuta con `F1-micro` su 5 fold
+  - `objective(trial)` valuta con `F1-micro` su 5 fold richiamando la rispettiva classe che addestra il modello
 - Salva:
   - Studio (`.pkl`)
   - Modelli ottimizzati (`.joblib`)
@@ -112,10 +145,10 @@ Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati struttura
 
 | Modello       | Cross-Val | Optuna | Embedding | 
 |---------------|-----------|--------|-----------|
-| CatBoost      | ✅        | ✅     | ❌        |
-| LightGBM      | ✅        | ✅     | ❌        | 
-| XGBoost       | ✅        | ✅     | ✅        |
-| Random Forest | ✅        | ❌     | ❌        |
+| CatBoost      | ✅        | ✅    | ❌        |
+| LightGBM      | ✅        | ✅    | ❌        | 
+| XGBoost       | ✅        | ✅    | ✅        |
+| Random Forest | ✅        | ❌    | ❌        |
 
 ---
 
@@ -130,5 +163,3 @@ Predire la variabile `damage_grade` (classe 1, 2, 3) a partire da dati struttura
 
 ```bash
 pip install -r requirements.txt
-
-
