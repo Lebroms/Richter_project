@@ -156,6 +156,7 @@ class XGBonfolds:
             model = XGBClassifier(**self.params)
             model.fit(X_train, y_train,
                       eval_set=[(X_val, y_val)],
+                      early_stopping_rounds=130,
                       verbose=False)
 
             if save:

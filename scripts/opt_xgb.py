@@ -1,8 +1,30 @@
 import optuna
 import pandas as pd
+import numpy as np
+import pickle
 from joblib import dump
 from XGBoost import XGBonfolds
 from data_cleaning import Data_cleaner
+
+BASE_PATH = 'C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/data/embeddings/'
+
+def load_embedding_and_map(column):
+    """
+    Carica da file la matrice di embedding e la mappa ID associata a una colonna categoriale.
+
+    Parametri:
+    - column (str): nome della colonna per cui caricare l'embedding 
+
+    Ritorna:
+    - tuple (np.ndarray, dict): 
+        - emb_matrix: matrice NumPy con i vettori di embedding.
+        - id_map: dizionario che mappa i valori originali della colonna agli ID usati per indexing.
+    """
+    emb_matrix = np.load(f"{BASE_PATH}/embedding_{column}.npy")
+    with open(f"{BASE_PATH}/id_map_{column}.pkl", "rb") as f:
+        id_map = pickle.load(f)
+    return emb_matrix, id_map
+
 
 
 class XGBoost_tuning:
@@ -26,14 +48,18 @@ class XGBoost_tuning:
         Ritorna:
         - None
         """
-        self.df_full=df_full
-        self.target_col=target_col
-        self.n_folds=n_folds
-        self.data_path=data_path
-        self.model_path=model_path
-        self.study_path=study_path
+        self.df_full = df_full
+        self.target_col = target_col
+        self.n_folds = n_folds
+        self.data_path = data_path
+        self.model_path = model_path
+        self.study_path = study_path
+        self.embedding_columns = ["geo_level_2_id", "geo_level_3_id"]
+        self.embedding_data = {
+            col: load_embedding_and_map(col) for col in self.embedding_columns
+        }
 
-    def run_optuna(self, n_trials=130):
+    def run_optuna(self, n_trials=200):
         """
         Esegue l'ottimizzazione con Optuna per il tuning degli iperparametri
         di un modello XGBoost, basato sulla media del punteggio F1-micro su più fold.
@@ -57,32 +83,36 @@ class XGBoost_tuning:
             - float: punteggio F1-micro medio sui fold.
             """
             params = {
-                "n_estimators": trial.suggest_int("n_estimators", 300, 2000),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-                "max_depth": trial.suggest_int("max_depth", 3, 10),
-                "min_child_weight": trial.suggest_float("min_child_weight", 1.0, 10.0),
-                "gamma": trial.suggest_float("gamma", 0, 5),
-                "subsample": trial.suggest_float("subsample", 0.5, 1.0),
-                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.4, 1.0),
+                #"n_estimators": trial.suggest_int("n_estimators", 300, 2000),  # accorciato range
+                "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.2, log=True),
+                "max_depth": trial.suggest_int("max_depth", 4, 15),
+                "min_child_weight": trial.suggest_float("min_child_weight", 1.0, 8.0),
+                "gamma": trial.suggest_float("gamma", 0, 3),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 1.0),
-                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 1.0),
-                "enable_categorical":True,
+                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 2.0),
+                "grow_policy": trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
+                "n_estimators": 2000,
+                "enable_categorical": True,
                 "objective": "multi:softprob",
                 "eval_metric": "mlogloss",
                 "num_class": 3,
                 "tree_method": "hist",
-                #"device": "cuda", # per GPU
                 "random_state": 42,
                 "verbosity": 0
             }
 
-            model = XGBonfolds(self.df_full, self.data_path, params)
-            _, mean_f1= model.run(self.model_path, self.target_col, self.n_folds)
+
+
+            # Apply fold embeddings dentro il modello
+            model = XGBonfolds(self.df_full, self.data_path, params, self.embedding_data)
+            _, mean_f1 = model.run(self.model_path, self.target_col, self.n_folds,trial_number=trial.number)
 
             return mean_f1
 
-        study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=20))
-        study.optimize(objective, n_trials=n_trials, n_jobs=6, timeout=18000) 
+        study = optuna.create_study(direction="maximize", pruner=optuna.pruners.MedianPruner(n_warmup_steps=30))
+        study.optimize(objective, n_trials=n_trials, n_jobs=6, timeout=27000)
 
         print("Best F1-micro:", study.best_value)
         print("Best hyperparameters:")
@@ -90,36 +120,33 @@ class XGBoost_tuning:
             print(f"  {k}: {v}")
 
         dump(study, self.study_path)
-        print(f"Study salvato in: {self.study_path}")
+        print(f"Study salvato in: {self.study_path}") 
 
-        default_params={
-            "enable_categorical":True,
+        default_params = {
+            "n_estimators": 2000,
+            "enable_categorical": True,
             "objective": "multi:softprob",
             "eval_metric": "mlogloss",
             "num_class": 3,
             "tree_method": "hist",
-            # "device": "cuda", # per GPU
             "random_state": 42,
             "verbosity": 0
         }
         parameters = {**study.best_params, **default_params}
-        save=True
-        model = XGBonfolds(self.df_full, self.data_path, parameters)
-        f1_scores, mean_f1= model.run(self.model_path, self.target_col, self.n_folds, save)
-
+        model = XGBonfolds(self.df_full, self.data_path, parameters, self.embedding_data)
+        model.run(self.model_path, self.target_col, self.n_folds, save=True)
 
 if __name__ == "__main__":
-    dataset_path = 'C:/Users/emagi/Documents/richters_predictor/data/clean_dataset.csv'
+    dataset_path = 'C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/data/clean_dataset.csv'
     target_col = "damage_grade"
     n_folds = 5
-    index_path = "C:/Users/emagi/Documents/richters_predictor/data/cross_validation"
-    model_path = "C:/Users/emagi/Documents/richters_predictor/models"
-    study_path = "C:/Users/emagi/Documents/richters_predictor/models/optuna_study_xgb.pkl"
-    # dataset_emb_path = "C:/Users/emagi/Documents/richters_predictor/data/dataset_with_embedding.csv"      senza embedding
+    index_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/data/cross_validation/"
+    model_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/models/"
+    study_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/models/optuna_study_cat.pkl"
 
     df = pd.read_csv(dataset_path)
-    df = Data_cleaner.missing_and_error_handler(df)    # solo con df senza emb
+    df = Data_cleaner.missing_and_error_handler(df)
     print(df.dtypes)
     print(f"Dataset caricato: {df.shape}")
-    opt_xgb = XGBoost_tuning(df, target_col, n_folds, index_path, model_path, study_path)
-    opt_xgb.run_optuna()
+    tuner = XGBoost_tuning(df, target_col, n_folds, index_path, model_path, study_path)
+    tuner.run_optuna()
