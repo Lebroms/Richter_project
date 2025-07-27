@@ -94,6 +94,7 @@ class XGBoost_tuning:
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 2.0),
                 "grow_policy": trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"]),
                 "n_estimators": 2000,
+                "early_stopping_rounds":130,
                 "enable_categorical": True,
                 "objective": "multi:softprob",
                 "eval_metric": "mlogloss",
@@ -124,6 +125,7 @@ class XGBoost_tuning:
 
         default_params = {
             "n_estimators": 2000,
+            "early_stopping_rounds":130,
             "enable_categorical": True,
             "objective": "multi:softprob",
             "eval_metric": "mlogloss",

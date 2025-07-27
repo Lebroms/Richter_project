@@ -156,11 +156,10 @@ class XGBonfolds:
             model = XGBClassifier(**self.params)
             model.fit(X_train, y_train,
                       eval_set=[(X_val, y_val)],
-                      early_stopping_rounds=130,
                       verbose=False)
 
             if save:
-                model_path = f"{model_path_dir}/xgb_model_fold_{fold}.joblib"
+                model_path = f"{model_path_dir}/xgb_model_version_3_fold_{fold}.joblib"
                 dump(model, model_path)
 
             y_pred = model.predict(X_val)
