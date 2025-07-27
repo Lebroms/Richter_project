@@ -142,7 +142,7 @@ if __name__ == "__main__":
     n_folds = 5
     index_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/data/cross_validation/"
     model_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/models/"
-    study_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/models/optuna_study_cat.pkl"
+    study_path = "C:/Users/lscor/OneDrive/Magistrale/F_Intelligenza_artificiale/Richter_project/models/optuna_study_xgb.pkl"
 
     df = pd.read_csv(dataset_path)
     df = Data_cleaner.missing_and_error_handler(df)
