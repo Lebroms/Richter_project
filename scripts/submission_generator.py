@@ -10,7 +10,7 @@ class Submitter:
     Classe che crea la submission
     """
 
-    def __init__(self, model_type, test_value_path, submission_format_path, submission_output_path, embedding_dir):
+    def __init__(self, model_type, test_value_path, submission_format_path, submission_output_path, embedding_dir, df_training):
         """
         Inizializza la classe Submitter con i percorsi e le configurazioni per la generazione della submission.
 
@@ -29,12 +29,14 @@ class Submitter:
         self.submission_format_path=submission_format_path
         self.submission_output_path=submission_output_path
         self.embedding_dir=embedding_dir
+        self.df_training = df_training
 
 
     def apply_emb(self, df, column, embedding_matrix, emb_dim, id_map):
         """
         Applica gli embedding a una colonna categoriale del dataframe, mappandone i valori
         a vettori densi tramite una matrice di embedding e un dizionario ID.
+        Usa una media ponderata degli embedding calcolata sul training come vettore di default.
 
         Parametri:
         - df (pd.DataFrame): dataframe a cui applicare gli embedding.
@@ -46,6 +48,8 @@ class Submitter:
         Ritorna:
         - pd.DataFrame: dataframe con i vettori di embedding al posto della colonna originale.
         """
+       
+    
         # Mappa i valori della colonna ai rispettivi ID usando il dizionario fornito
         df[column + "_mapped"] = df[column].map(id_map)
 
@@ -54,33 +58,44 @@ class Submitter:
         if len(unseen_values) > 0:
             print(f"{len(unseen_values)} valori NON visti nel training per {column}: {unseen_values}")
 
-        # Embedding dataframe
+        # Calcola le frequenze nel training
+        df_train_mapped = self.df_training[column].map(id_map).astype(float).fillna(-1).astype(int)
+        freq_map = df_train_mapped[df_train_mapped != -1].value_counts().to_dict()
+
+        # Costruisce il dataframe degli embedding
         emb_df = pd.DataFrame(
             embedding_matrix, 
             columns=[f"{column}_emb_{i}" for i in range(emb_dim)]
         )
-        emb_df[column + "_mapped"] = emb_df.index
+        emb_df["id"] = emb_df.index
+        emb_df["freq"] = emb_df["id"].map(freq_map).fillna(0)
 
-        # Vettore di default: media degli embedding (indice -1)
-        default_vec = embedding_matrix.mean(axis=0)
-        default_row = pd.DataFrame([default_vec], columns=[f"{column}_emb_{i}" for i in range(emb_dim)])
-        default_row[column + "_mapped"] = -1
+        # Calcolo media ponderata
+        weighted_sum = (emb_df.drop(columns=["id", "freq"]).multiply(emb_df["freq"], axis=0)).sum()
+        total_freq = emb_df["freq"].sum()
+        default_vec = (weighted_sum / total_freq).values if total_freq > 0 else embedding_matrix.mean(axis=0)
 
-        # Aggiunge il vettore di default
-        emb_df = pd.concat([emb_df, default_row], ignore_index=True)
+        # Embedding con ID per il merge
+        emb_merge = emb_df.drop(columns=["freq"]).rename(columns={"id": column + "_mapped"})
 
-        # Sostituisce NaN con -1 e forza a int
+        # Sostituisce NaN con -1 
         df[column + "_mapped"] = df[column + "_mapped"].astype(float).fillna(-1).astype(int)
 
+        # Aggiunge riga di default
+        default_row = pd.DataFrame([default_vec], columns=[f"{column}_emb_{i}" for i in range(emb_dim)])
+        default_row[column + "_mapped"] = -1
+        emb_merge = pd.concat([emb_merge, default_row], ignore_index=True)
+
+        # Merge con il DataFrame originale
+        df = df.merge(emb_merge, on=column + "_mapped", how='left')
+
+        # Conta e stampa i valori che usano il default
         n_default = (df[column + "_mapped"] == -1).sum()
         total = len(df)
         perc = 100 * n_default / total
         print(f"{n_default} campioni test ({perc:.2f}%) usano il vettore di default per {column}")
 
-        # Merge con il DataFrame originale
-        df = df.merge(emb_df, on=column + "_mapped", how='left')
-
-        # Elimina la colonna originale e quella mappata
+        # Elimina le colonne intermedie
         df = df.drop(columns=[column, column + "_mapped"])
 
         return df
@@ -100,14 +115,14 @@ class Submitter:
         df = df.drop(columns=["building_id"])
         df = Data_cleaner.missing_and_error_handler(df)
 
-        '''if self.model_type == "xgboost":
+        if self.model_type == "xgboost":
             for column in ["geo_level_1_id", "geo_level_2_id", "geo_level_3_id"]:
                 emb_matrix = np.load(f"{self.embedding_dir}/embedding_{column}.npy")
                 with open(f"{self.embedding_dir}/id_map_{column}.pkl", "rb") as f:
                     id_map = pickle.load(f)
 
                 emb_dim = emb_matrix.shape[1]
-                df = self.apply_emb(df, column, emb_matrix, emb_dim, id_map)'''
+                df = self.apply_emb(df, column, emb_matrix, emb_dim, id_map)
 
         return df
 
@@ -146,7 +161,7 @@ class Submitter:
 
 
 if __name__ == "__main__":
-    model_type = "xgboost"  # "lightgbm", "catboost" o "xgboost"
+    model_type = "lightgbm"  # "lightgbm", "catboost" o "xgboost"
     test_value_path = 'C:/Users/emagi/Documents/richters_predictor/data/test_values.csv'
     submission_format_path = 'C:/Users/emagi/Documents/richters_predictor/data/submission_format.csv'
     submission_output_path = f"C:/Users/emagi/Documents/richters_predictor/data/submission_{model_type}.csv"
@@ -159,6 +174,10 @@ if __name__ == "__main__":
             "xgboost": [f"C:/Users/emagi/Documents/richters_predictor/models/xgb_model_fold_{i}.joblib" for i in range(1, 6)],
         }
     
-    sub = Submitter (model_type, test_value_path, submission_format_path, submission_output_path, embedding_dir)
+    df_training = pd.read_csv("C:/Users/emagi/Documents/richters_predictor/data/clean_dataset.csv")
+    df_training = Data_cleaner.missing_and_error_handler(df_training)
+
+    sub = Submitter(model_type, test_value_path, submission_format_path,
+                    submission_output_path, embedding_dir, df_training)
     sub.generate_submission(model_path)
 
