@@ -1,5 +1,7 @@
 # Richters_predictor
 
+Link della challenge: [https://www.drivendata.org/competitions/57/nepal-earthquake/page/136/](https://www.drivendata.org/competitions/57/nepal-earthquake/page/136/)
+
 Sistema modulare completo per la **predizione del danno sismico agli edifici** (`damage_grade`) attraverso tecniche di **Machine Learning**, **embedding neurali**, **ottimizzazione iperparametrica con Optuna** e validazione K-Fold. Basato su CatBoost, LightGBM, Random Forest e XGBoost.
 
 ---
@@ -164,3 +166,4 @@ Alternativamente, si possono duplicare questi file e creare una versione modific
 
 ```bash
 pip install -r requirements.txt
+
